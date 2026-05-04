@@ -1,0 +1,56 @@
+// This is your Prisma schema file.
+// Prisma reads this file to understand your database structure
+// and auto-generates TypeScript types for you.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── NOTE ON ROLES / STATUSES ─────────────────────────────────────────────────
+// We use String fields rather than DB enums for portability.
+// Valid values: role = "USER" | "ADMIN", status = "CONFIRMED" | "CANCELLED"
+
+// ─── USER ─────────────────────────────────────────────────────────────────────
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("USER")   // "USER" or "ADMIN"
+  createdAt DateTime @default(now())
+
+  bookings  Booking[]
+  slots     Slot[]
+}
+
+// ─── SLOT ─────────────────────────────────────────────────────────────────────
+model Slot {
+  id        Int      @id @default(autoincrement())
+  date      String   // e.g. "2024-12-25"
+  startTime String   // e.g. "09:00"
+  endTime   String   // e.g. "10:00"
+  title     String   @default("Appointment")
+  adminId   Int
+  admin     User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  booking   Booking? // @unique on Booking.slotId means at most one booking per slot
+  createdAt DateTime @default(now())
+}
+
+// ─── BOOKING ──────────────────────────────────────────────────────────────────
+// The @unique on slotId is what prevents double-booking at the database level.
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slotId    Int      @unique  // ← Only one booking can ever exist per slot
+  slot      Slot     @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  notes     String?
+  status    String   @default("CONFIRMED")  // "CONFIRMED" or "CANCELLED"
+  createdAt DateTime @default(now())
+}
